@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Engineer Ziq - Professional Studio</title>
+    <style>
+        :root {
+            --sky-blue: #00A3FF;
+            --glass: rgba(255, 255, 255, 0.75);
+            --border-glass: rgba(255, 255, 255, 0.5);
+            --dark-ui: #1E1E1E;
+        }
+
+        body, html {
+            margin: 0; padding: 0; height: 100%;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: linear-gradient(135deg, #e0f2fe 0%, #7dd3fc 100%);
+            overflow: hidden;
+            user-select: none;
+        }
+
+        /* Ibis Style Floating Header */
+        header {
+            position: absolute;
+            top: 15px; left: 15px; right: 15px;
+            height: 55px;
+            background: var(--glass);
+            backdrop-filter: blur(25px);
+            border: 1px solid var(--border-glass);
+            border-radius: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 25px;
+            z-index: 1000;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        }
+
+        .logo { font-weight: 900; color: var(--sky-blue); font-size: 1.2rem; }
+
+        /* Professional Toolset Sidebar */
+        .sidebar {
+            position: absolute;
+            left: 15px; top: 85px; bottom: 85px;
+            width: 65px;
+            background: var(--glass);
+            backdrop-filter: blur(25px);
+            border-radius: 25px;
+            border: 1px solid var(--border-glass);
+            display: flex;
+            flex-direction: column;
+            padding: 20px 0;
+            gap: 15px;
+            align-items: center;
+            z-index: 999;
+        }
+
+        .tool-btn {
+            width: 45px; height: 45px;
+            border-radius: 15px;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; transition: 0.3s;
+            font-size: 20px;
+        }
+
+        .tool-btn:hover { background: rgba(0, 163, 255, 0.1); }
+        .tool-btn.active { background: var(--sky-blue); color: white; box-shadow: 0 5px 15px rgba(0, 163, 255, 0.4); }
+
+        /* Canvas Management */
+        .canvas-area {
+            width: 100vw; height: 100vh;
+            display: flex; justify-content: center; align-items: center;
+            position: relative;
+        }
+
+        canvas {
+            background: #ffffff;
+            border-radius: 5px;
+            box-shadow: 0 0 40px rgba(0,0,0,0.15);
+            image-rendering: pixelated;
+        }
+
+        /* Bottom Pro-Panel */
+        .pro-panel {
+            position: absolute;
+            bottom: 15px; left: 50%;
+            transform: translateX(-50%);
+            width: 80%; max-width: 600px;
+            background: var(--glass);
+            backdrop-filter: blur(25px);
+            border-radius: 25px;
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            border: 1px solid var(--border-glass);
+            z-index: 1000;
+        }
+
+        .control-group { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+        .control-group label { font-size: 10px; font-weight: bold; color: #555; }
+
+        input[type="range"] { width: 120px; accent-color: var(--sky-blue); }
+        input[type="color"] { border: none; background: transparent; width: 40px; height: 40px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="logo">THE ENGINEER ZIQ</div>
+    <div style="display: flex; gap: 15px;">
+        <button onclick="undo()" style="border:none; background:none; cursor:pointer;">↩️</button>
+        <button onclick="downloadProject()" style="background: var(--sky-blue); color:white; border:none; padding:8px 20px; border-radius:15px; font-weight:bold; cursor:pointer;">Export PNG</button>
+    </div>
+</header>
+
+<div class="sidebar">
+    <div class="tool-btn active" onclick="setTool('brush', this)" title="Berus Lukis">🖌️</div>
+    <div class="tool-btn" onclick="setTool('pen', this)" title="Pen Teknikal">✒️</div>
+    <div class="tool-btn" onclick="setTool('eraser', this)" title="Pemadam">🧽</div>
+    <div class="tool-btn" onclick="setTool('engineer', this)" title="Bina Rumah 2-Tingkat">🏗️</div>
+    <div class="tool-btn" onclick="setTool('fill', this)" title="Fill Color">🫗</div>
+    <div class="tool-btn" onclick="clearCanvas()" title="Kosongkan">🗑️</div>
+</div>
+
+<div class="canvas-area">
+    <canvas id="mainCanvas"></canvas>
+</div>
+
+<div class="pro-panel">
+    <div class="control-group">
+        <label>WARNA</label>
+        <input type="color" id="colorPicker" value="#00A3FF">
+    </div>
+    <div class="control-group">
+        <label>KETEBALAN</label>
+        <input type="range" id="brushSize" min="1" max="100" value="5">
+    </div>
+    <div class="control-group">
+        <label>OPACITY</label>
+        <input type="range" id="opacity" min="1" max="100" value="100">
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('mainCanvas');
+    const ctx = canvas.getContext('2d', { alpha: false });
+    let painting = false;
+    let tool = 'brush';
+    let history = [];
+
+    // Init Professional Canvas
+    function init() {
+        canvas.width = window.innerWidth * 0.95;
+        canvas.height = window.innerHeight * 0.95;
+        ctx.fillStyle = "white";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        saveState();
+    }
+
+    function setTool(newTool, el) {
+        tool = newTool;
+        document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('active'));
+        el.classList.add('active');
+    }
+
+    function startDraw(e) {
+        painting = true;
+        if (tool === 'engineer') {
+            drawProfessionalHouse(e);
+        } else {
+            draw(e);
+        }
+    }
+
+    function stopDraw() {
+        painting = false;
+        ctx.beginPath();
+        saveState();
+    }
+
+    function draw(e) {
+        if (!painting || tool === 'engineer') return;
+
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        ctx.lineWidth = document.getElementById('brushSize').value;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        
+        let opacity = document.getElementById('opacity').value / 100;
+        ctx.globalAlpha = opacity;
+
+        if (tool === 'eraser') {
+            ctx.strokeStyle = "white";
+        } else if (tool === 'pen') {
+            ctx.lineWidth = 2; // Fixed technical size
+            ctx.strokeStyle = document.getElementById('colorPicker').value;
+        } else {
+            ctx.strokeStyle = document.getElementById('colorPicker').value;
+        }
+
+        ctx.lineTo(x, y);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+    }
+
+    // Fungsi Kejuruteraan Profesional (Rumah 2 Tingkat)
+    function drawProfessionalHouse(e) {
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        const w = 180;
+        const h = 120;
+        
+        ctx.globalAlpha = 1.0;
+        ctx.strokeStyle = "#334155";
+        ctx.lineWidth = 3;
+
+        // Struktur Ground Floor
+        ctx.strokeRect(x - w/2, y, w, h);
+        
+        // Struktur First Floor
+        ctx.strokeRect(x - w/2, y - h, w, h);
+
+        // Bumbung Pitch (Engineer Style)
+        ctx.beginPath();
+        ctx.moveTo(x - w/2 - 15, y - h);
+        ctx.lineTo(x, y - h - 70);
+        ctx.lineTo(x + w/2 + 15, y - h);
+        ctx.stroke();
+
+        // Butiran Teknikal (Pintu, Tingkap, Balkoni)
+        ctx.strokeRect(x - 25, y + 50, 50, 70); // Main Door
+        ctx.strokeRect(x - 60, y - 80, 40, 40); // Window 1
+        ctx.strokeRect(x + 20, y - 80, 40, 40); // Window 2
+        
+        // Garisan Aras (Levels)
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        ctx.moveTo(x + w/2, y); ctx.lineTo(x + w/2 + 50, y);
+        ctx.moveTo(x + w/2, y - h); ctx.lineTo(x + w/2 + 50, y - h);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Label Kejuruteraan
+        ctx.font = "bold 12px Arial";
+        ctx.fillStyle = "#00A3FF";
+        ctx.fillText("FFL +3500mm", x + w/2 + 55, y - h + 5);
+        ctx.fillText("GFL +0000mm", x + w/2 + 55, y + 5);
+        ctx.fillText("THE ENGINEER ZIQ DESIGN", x - 80, y + h + 30);
+        
+        painting = false;
+    }
+
+    function saveState() {
+        if (history.length > 20) history.shift();
+        history.push(canvas.toDataURL());
+    }
+
+    function undo() {
+        if (history.length > 1) {
+            history.pop();
+            let img = new Image();
+            img.src = history[history.length - 1];
+            img.onload = () => {
+                ctx.clearRect(0,0,canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0);
+            };
+        }
+    }
+
+    function clearCanvas() {
+        if(confirm("Padam semua progres?")) {
+            ctx.fillStyle = "white";
+            ctx.fillRect(0,0,canvas.width, canvas.height);
+            saveState();
+        }
+    }
+
+    function downloadProject() {
+        const link = document.createElement('a');
+        link.download = 'EngineerZiq-Project.png';
+        link.href = canvas.toDataURL();
+        link.click();
+    }
+
+    canvas.addEventListener('mousedown', startDraw);
+    canvas.addEventListener('mousemove', draw);
+    window.addEventListener('mouseup', stopDraw);
+    window.onload = init;
+</script>
+
+</body>
+</html>
